@@ -59,7 +59,9 @@ class Object_3D {
      * @param {number[]} pos 
      * @param {number} scale 
      */
-    constructor(objPath, pos=[0,0,0], scale = 1) {
+    constructor(objPath,reflective = 0.3 , pos=[0,0,0], scale = 1) {
+        this.reflective = reflective
+
         this.vertices = []
         this.edges = []
         this.normals = []
@@ -107,7 +109,7 @@ class Object_3D {
         // VTN[0].forEach((vg,i) =>{
         //     VTN[0][i]=this.vertices[vg].slice(0,3)
         // })
-        VTN[2] = math.divide(this.normals[VTN[2][0]],math.norm(this.normals[VTN[2][0]]))
+        VTN[2] = math.dotDivide(this.normals[VTN[2][0]],math.norm(this.normals[VTN[2][0]],3))
 
         
 
@@ -210,20 +212,20 @@ class Scene {
     async renderFaces(){
         this.getCulling()
         this.objs.forEach(O=>{
-            console.log(O.faces.Culling)
+            // console.log(O.faces.Culling)
             this.ctx.fillStyle = "white"
             O.faces.Vertex_Groups.forEach((group, key)=>{
-                if (O.faces.Culling[key]>0){//facing away then don't render
+                if (O.faces.Culling[key]>=0){//facing away then don't render
                     return
                 }
 
                 var surface = new Path2D()
-                surface.moveTo(O.vtCam[0][group[0]], O.vtCam[1][group[0]])
-                this.ctx.moveTo(O.vtCam[0][group[0]], O.vtCam[1][group[0]])
+                surface.moveTo(O.vtCam[0][group[0]]+0.5, O.vtCam[1][group[0]]+0.5)
+                this.ctx.moveTo(O.vtCam[0][group[0]]+0.5, O.vtCam[1][group[0]]+0.5)
 
                 group.forEach(vtIndex=>{
-                    surface.lineTo(O.vtCam[0][vtIndex], O.vtCam[1][vtIndex])
-                    this.ctx.lineTo(O.vtCam[0][vtIndex], O.vtCam[1][vtIndex])
+                    surface.lineTo(O.vtCam[0][vtIndex]+0.5, O.vtCam[1][vtIndex]+0.5)
+                    this.ctx.lineTo(O.vtCam[0][vtIndex]+0.5, O.vtCam[1][vtIndex]+0.5)
                 })
                 // this.ctx.stroke()
                 this.ctx.fill(surface)
@@ -233,9 +235,9 @@ class Scene {
 
     getCulling(){
         this.objs.forEach(O=>{
-            console.log(O.faces.Normals)
+            // console.log(O.faces.Normals)
             // console.log(this.camera.forwardVector)
-            O.faces.Culling = math.multiply(O.faces.Normals, this.camera.forwardVector)
+            O.faces.Culling = math.multiply(O.faces.Normals,this.camera.forwardVector)
         })
     }
 }
