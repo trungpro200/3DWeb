@@ -59,8 +59,10 @@ class Object_3D {
      * @param {number[]} pos 
      * @param {number} scale 
      */
-    constructor(objPath,reflective = 0.3 , pos=[0,0,0], scale = 1) {
+    constructor(objPath,reflective = 0.8 , pos=[0,0,0], scale = 1) {
         this.reflective = reflective
+
+        this.color = [255,255,255]
 
         this.vertices = []
         this.edges = []
@@ -142,14 +144,6 @@ class Object_3D {
                     } else if (line.startsWith('l')){
                         this.edges.push(math.subtract(l, 1))
                     } else if (line.startsWith('f')){
-                        // l.forEach((vt,k)=>{
-                        //     if (!k){
-                        //         this.edges.push([vt-1, l[l.length-1]-1])
-                        //         return
-                        //     }
-
-                        //     this.edges.push(math.subtract([vt,l[k-1]],1))
-                        // })
                         l = line.slice(2).split(" ")
                         this.extractFace(l)
                     }
@@ -165,10 +159,15 @@ class Scene {
      * @param {Object_3D[]} objs 
      */
     constructor(camera, objs) {
+        this.ambientLight = 0.3
+        this.lightSources = []
+
         this.camera = camera
         this.objs = objs
         this.vtOffset = math.floor(parseInt(css_vals.getPropertyValue('--vt-size'))/2)
         this.canvas = document.createElement("canvas")
+
+
 
         this.canvas.id = "canv"
         this.canvas.width = camera.screenWidth
@@ -181,6 +180,7 @@ class Scene {
         bo.appendChild(this.canvas)
 
         Promise.all(objs.map(o=>o.read())).then(()=>{
+            this.createLight(1, [0,5,4])
             this.renderObjsVts()
             this.renderFaces()
         })
@@ -209,40 +209,63 @@ class Scene {
         })
     }
 
-    async renderFaces(){
+    async renderFaces(){ //and maybe edges also 
         this.getCulling()
         this.objs.forEach(O=>{
+            var Its = math.zeros(O.faces.Vertex_Groups.length)
+            this.lightSources.forEach(ls=>{
+                Its = math.add(Its, math.multiply(O.faces.Normals, ls.facing))
+            })
+
+            Its = Its.map(e=>{
+                return Math.max(e,0)
+            }).toArray()
+
             // console.log(O.faces.Culling)
-            this.ctx.fillStyle = "white"
+
+
             O.faces.Vertex_Groups.forEach((group, key)=>{
                 if (O.faces.Culling[key]>=0){//facing away then don't render
                     return
                 }
+                // console.log(Its)
+                var color = math.multiply(O.color, this.ambientLight+Its[key])
+                color = math.multiply(color, O.reflective)
+                this.ctx.fillStyle = `rgb(${color[0]},${color[1]},${color[2]})`
 
                 var surface = new Path2D()
                 surface.moveTo(O.vtCam[0][group[0]]+0.5, O.vtCam[1][group[0]]+0.5)
-                this.ctx.moveTo(O.vtCam[0][group[0]]+0.5, O.vtCam[1][group[0]]+0.5)
 
                 group.forEach(vtIndex=>{
                     surface.lineTo(O.vtCam[0][vtIndex]+0.5, O.vtCam[1][vtIndex]+0.5)
-                    this.ctx.lineTo(O.vtCam[0][vtIndex]+0.5, O.vtCam[1][vtIndex]+0.5)
                 })
-                // this.ctx.stroke()
+
                 this.ctx.fill(surface)
             })
+        })
+    }
+    /**
+     * 
+     * @param {Array} pos 
+     * @param {Array} target 
+     */
+    createLight(intensity=1, pos, target=[0,0,0]){ //Sunlight (1 direction only)
+
+        this.lightSources.push({
+            pos: pos,
+            facing: math.divide(math.subtract(pos,target), math.norm(math.subtract(target,pos))),
+            intensity: intensity
         })
     }
 
     getCulling(){
         this.objs.forEach(O=>{
-            // console.log(O.faces.Normals)
-            // console.log(this.camera.forwardVector)
             O.faces.Culling = math.multiply(O.faces.Normals,this.camera.forwardVector)
         })
     }
 }
 
-var cam = new Camera([2, 2, 2])
+var cam = new Camera([-3, 2, -3])
 var obj = new Object_3D("sphereN.obj")
 
 var scene = new Scene(cam, [obj])
